@@ -101,7 +101,7 @@ export const submitAudit = async (
 
     mockAudits[auditIndex] = {
       ...mockAudits[auditIndex],
-      checklist: payload.checklist,
+      checklist: payload.checklist || [],
       overallRemarks: payload.overallRemarks,
       finalResult: payload.finalResult,
       status: 'completed',

@@ -6,13 +6,26 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { AuthState, LoginCredentials, Auditor } from '@/types';
-import { login, logout, getCurrentUser, getStoredTokens } from '@/api/authApi';
+import {
+  login,
+  logout,
+  getCurrentUser,
+  getStoredTokens,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+  updateProfile,
+} from '@/api/authApi';
 
 interface AuthActions {
   // Actions
   signIn: (credentials: LoginCredentials) => Promise<void>;
   signOut: () => Promise<void>;
   restoreSession: () => Promise<boolean>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateProfileName: (fullName: string) => Promise<void>;
   clearError: () => void;
   setAuditor: (auditor: Auditor) => void;
 }
@@ -103,6 +116,66 @@ export const useAuthStore = create<AuthStore>()(
             localStorage.removeItem('auth_tokens');
             sessionStorage.removeItem('auth_tokens');
             return false;
+          }
+        },
+
+        /**
+         * Request password reset email
+         */
+        forgotPassword: async (email: string) => {
+          set({ isLoading: true, error: null });
+          try {
+            await forgotPassword(email);
+            set({ isLoading: false, error: null });
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Forgot password request failed';
+            set({ isLoading: false, error: message });
+            throw error;
+          }
+        },
+
+        /**
+         * Reset password using token
+         */
+        resetPassword: async (token: string, password: string) => {
+          set({ isLoading: true, error: null });
+          try {
+            await resetPassword(token, password);
+            set({ isLoading: false, error: null });
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Reset password failed';
+            set({ isLoading: false, error: message });
+            throw error;
+          }
+        },
+
+        /**
+         * Change password from profile
+         */
+        changePassword: async (currentPassword: string, newPassword: string) => {
+          set({ isLoading: true, error: null });
+          try {
+            await changePassword(currentPassword, newPassword);
+            set({ isLoading: false, error: null });
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Change password failed';
+            set({ isLoading: false, error: message });
+            throw error;
+          }
+        },
+
+        /**
+         * Update user profile name
+         */
+        updateProfileName: async (fullName: string) => {
+          set({ isLoading: true, error: null });
+          try {
+            const updatedAuditor = await updateProfile(fullName);
+            set({ auditor: updatedAuditor, isLoading: false, error: null });
+          } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Update profile name failed';
+            set({ isLoading: false, error: message });
+            throw error;
           }
         },
 

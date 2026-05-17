@@ -6,11 +6,11 @@
  * - completed: read-only view with submitted data
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   MapPin, Phone, User, Calendar, Clock, ChevronLeft,
-  ExternalLink, Camera, Loader2,
+  ExternalLink, Loader2,
   AlertTriangle, CheckCircle2, XCircle, AlertCircle,
   FileText, Send
 } from 'lucide-react';
@@ -20,18 +20,15 @@ import { SkeletonCard } from '@/components/SkeletonCard';
 import {
   formatAuditDateLong, formatTime
 } from '@/utils/dateHelpers';
-import type { AuditChecklistItem, Audit } from '@/types';
+import type { Audit } from '@/types';
 
 export function AuditDetailScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [activePhotoItemId, setActivePhotoItemId] = useState<string | null>(null);
 
   const {
     currentAudit, loadAuditById, startAuditFlow, submitAuditFlow,
-    updateChecklistItem, uploadPhoto,
     isLoading, isSubmitting, error
   } = useAuditStore();
 
@@ -89,32 +86,6 @@ export function AuditDetailScreen() {
     await startAuditFlow(id);
   };
 
-  const handlePhotoClick = (itemId: string) => {
-    setActivePhotoItemId(itemId);
-    fileInputRef.current?.click();
-  };
-
-  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activePhotoItemId || !id) return;
-
-    try {
-      await uploadPhoto(id, activePhotoItemId, file);
-    } catch {
-      // Error handled silently - photo would be queued for sync
-    }
-    setActivePhotoItemId(null);
-    e.target.value = '';
-  };
-
-  const handleUpdateChecklistItem = (itemId: string, result: 'pass' | 'fail' | 'na') => {
-    updateChecklistItem(itemId, { result });
-  };
-
-  const handleUpdateNotes = (itemId: string, notes: string) => {
-    updateChecklistItem(itemId, { notes });
-  };
-
   const handleSubmit = async () => {
     if (!finalResult) {
       setSubmitError('Please select a final result before submitting.');
@@ -124,7 +95,6 @@ export function AuditDetailScreen() {
 
     if (!id) return;
     await submitAuditFlow(id, {
-      checklist: audit.checklist,
       overallRemarks,
       finalResult,
     });
@@ -253,39 +223,9 @@ export function AuditDetailScreen() {
         </div>
       )}
 
-      {/* In Progress - Checklist */}
+      {/* In Progress - Remarks and Determination */}
       {audit.status === 'in_progress' && (
         <>
-          {/* Hidden file input for camera */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handlePhotoSelect}
-          />
-
-          <div className="px-4 mt-4">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Audit Checklist</h3>
-              <p className="text-xs text-gray-500 mb-4">Rate each item as Pass, Fail, or N/A. Add photos where needed.</p>
-
-              <div className="space-y-5">
-                {audit.checklist.map((item, index) => (
-                  <ChecklistItemCard
-                    key={item.id}
-                    item={item}
-                    index={index + 1}
-                    onUpdateResult={handleUpdateChecklistItem}
-                    onUpdateNotes={handleUpdateNotes}
-                    onPhotoClick={handlePhotoClick}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
           {/* Overall Remarks */}
           <div className="px-4 mt-4">
             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
@@ -398,94 +338,6 @@ export function AuditDetailScreen() {
 }
 
 /**
- * Individual Checklist Item Card (in-progress)
- */
-interface ChecklistItemCardProps {
-  item: AuditChecklistItem;
-  index: number;
-  onUpdateResult: (itemId: string, result: 'pass' | 'fail' | 'na') => void;
-  onUpdateNotes: (itemId: string, notes: string) => void;
-  onPhotoClick: (itemId: string) => void;
-}
-
-function ChecklistItemCard({ item, index, onUpdateResult, onUpdateNotes, onPhotoClick }: ChecklistItemCardProps) {
-  return (
-    <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/50">
-      <div className="flex items-start gap-3">
-        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold flex items-center justify-center mt-0.5">
-          {index}
-        </span>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-700 mb-1">{item.category}</p>
-          <p className="text-sm text-gray-600 mb-3">{item.description}</p>
-
-          {/* Result Options */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
-            <button
-              onClick={() => onUpdateResult(item.id, 'pass')}
-              className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
-                item.result === 'pass'
-                  ? 'bg-green-50 border-green-300 text-green-700'
-                  : 'bg-white border-gray-200 text-gray-500'
-              }`}
-            >
-              Pass
-            </button>
-            <button
-              onClick={() => onUpdateResult(item.id, 'fail')}
-              className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
-                item.result === 'fail'
-                  ? 'bg-red-50 border-red-300 text-red-700'
-                  : 'bg-white border-gray-200 text-gray-500'
-              }`}
-            >
-              Fail
-            </button>
-            <button
-              onClick={() => onUpdateResult(item.id, 'na')}
-              className={`py-2 px-3 rounded-lg text-xs font-medium border transition-all ${
-                item.result === 'na'
-                  ? 'bg-gray-100 border-gray-300 text-gray-700'
-                  : 'bg-white border-gray-200 text-gray-500'
-              }`}
-            >
-              N/A
-            </button>
-          </div>
-
-          {/* Notes */}
-          <textarea
-            value={item.notes || ''}
-            onChange={(e) => onUpdateNotes(item.id, e.target.value)}
-            placeholder="Add notes (optional)..."
-            className="w-full h-16 p-2.5 rounded-lg border border-gray-200 text-sm text-gray-900
-              focus:outline-none focus:ring-1 focus:ring-[#1A7A4A] focus:border-transparent resize-none
-              placeholder:text-gray-400 bg-white mb-3"
-          />
-
-          {/* Photos */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {item.photoUrls?.map((url, i) => (
-              <div key={i} className="w-16 h-16 rounded-lg bg-gray-200 overflow-hidden relative">
-                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-              </div>
-            ))}
-            <button
-              onClick={() => onPhotoClick(item.id)}
-              className="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-0.5
-                active:bg-gray-50 transition-colors"
-            >
-              <Camera className="w-4 h-4 text-gray-400" />
-              <span className="text-[10px] text-gray-400">Add</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
  * Result Option Button
  */
 interface ResultOptionProps {
@@ -521,45 +373,6 @@ function ResultOption({ value, label, icon, selected, onSelect, color }: ResultO
 function CompletedAuditView({ audit }: { audit: Audit }) {
   return (
     <>
-      {/* Checklist Results */}
-      <div className="px-4 mt-4">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">Checklist Results</h3>
-
-          <div className="space-y-3">
-            {audit.checklist.map((item, index) => (
-              <div key={item.id} className="flex items-start gap-3 pb-3 border-b border-gray-50 last:border-0 last:pb-0">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 text-gray-600 text-xs font-semibold flex items-center justify-center">
-                  {index + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-700">{item.category}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
-                  {item.notes && (
-                    <p className="text-xs text-gray-600 mt-1 bg-gray-50 p-1.5 rounded">{item.notes}</p>
-                  )}
-                  {item.photoUrls && item.photoUrls.length > 0 && (
-                    <div className="flex gap-1.5 mt-2">
-                      {item.photoUrls.map((url, i) => (
-                        <div key={i} className="w-14 h-14 rounded-lg bg-gray-200 overflow-hidden">
-                          <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-shrink-0">
-                  {item.result === 'pass' && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                  {item.result === 'fail' && <XCircle className="w-5 h-5 text-red-500" />}
-                  {item.result === 'na' && <span className="text-xs text-gray-400 font-medium">N/A</span>}
-                  {!item.result && <span className="text-xs text-gray-300">--</span>}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
       {/* Overall Remarks */}
       {audit.overallRemarks && (
         <div className="px-4 mt-4">

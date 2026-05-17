@@ -137,3 +137,107 @@ export const getStoredTokens = (): AuthTokens | null => {
 export const hasRememberMe = (): boolean => {
   return localStorage.getItem('remember_me') === 'true';
 };
+
+/**
+ * Request password reset email
+ */
+export const forgotPassword = async (email: string): Promise<void> => {
+  if (USE_MOCK) {
+    await delay(MOCK_DELAY);
+    if (!email.includes('@')) {
+      throw new Error('Please enter a valid email address');
+    }
+    return;
+  }
+
+  try {
+    await apiClient.post('/auth/forgot-password', { email });
+  } catch (error) {
+    console.error('Forgot password failed:', getErrorMessage(error));
+    throw error;
+  }
+};
+
+/**
+ * Reset password using token
+ */
+export const resetPassword = async (token: string, password: string): Promise<void> => {
+  if (USE_MOCK) {
+    await delay(MOCK_DELAY);
+    if (token.length < 4) {
+      throw new Error('Invalid or expired reset token');
+    }
+    return;
+  }
+
+  try {
+    await apiClient.post('/auth/reset-password', { token, password });
+  } catch (error) {
+    console.error('Reset password failed:', getErrorMessage(error));
+    throw error;
+  }
+};
+
+/**
+ * Change password (authenticated)
+ */
+export const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+  if (USE_MOCK) {
+    await delay(MOCK_DELAY);
+    if (currentPassword.length < 4) {
+      throw new Error('Current password is incorrect');
+    }
+    return;
+  }
+
+  try {
+    await apiClient.post('/auth/change-password', { currentPassword, newPassword });
+  } catch (error) {
+    console.error('Change password failed:', getErrorMessage(error));
+    throw error;
+  }
+};
+
+/**
+ * Update user profile details (change name)
+ */
+export const updateProfile = async (fullName: string): Promise<Auditor> => {
+  if (USE_MOCK) {
+    await delay(MOCK_DELAY);
+    mockAuditor.name = fullName;
+    return { ...mockAuditor };
+  }
+
+  try {
+    const response = await apiClient.put<{
+      success: boolean;
+      data: { auditor: Auditor } | Auditor;
+      user?: any;
+    }>('/auth/profile', {
+      full_name: fullName,
+    });
+    
+    // Map response safely regardless of backend shape
+    const data = response.data;
+    if (data.success && data.data) {
+      const payload = data.data;
+      if ('auditor' in payload) {
+        return payload.auditor;
+      }
+      return payload as Auditor;
+    }
+    
+    // Fallback if Mongoose raw user is returned
+    const user = data.user || data;
+    return {
+      id: user.id || user._id || `mock-${Date.now()}`,
+      name: user.full_name || fullName,
+      email: user.email || '',
+      employeeId: user.employeeId || 'EMP-2026-003',
+      avatarUrl: user.avatar_url,
+    };
+  } catch (error) {
+    console.error('Update profile failed:', getErrorMessage(error));
+    throw error;
+  }
+};

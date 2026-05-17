@@ -134,6 +134,14 @@ export function LoginScreen() {
               </div>
               <span className="text-sm text-gray-600">Remember me</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/forgot-password')}
+              className="text-sm font-medium text-[#1A7A4A] active:opacity-60"
+            >
+              Forgot Password?
+            </button>
           </div>
 
           {/* Login Button */}

@@ -8,6 +8,8 @@ import { useEffect } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { LoginScreen } from '@/features/auth/LoginScreen';
+import { ForgotPasswordScreen } from '@/features/auth/ForgotPasswordScreen';
+import { ResetPasswordScreen } from '@/features/auth/ResetPasswordScreen';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { AuditListScreen } from '@/features/audits/AuditListScreen';
 import { AuditDetailScreen } from '@/features/audits/AuditDetailScreen';
@@ -96,6 +98,8 @@ function App() {
         {/* Public Routes */}
         <Route element={<PublicRoute />}>
           <Route path="/login" element={<LoginScreen />} />
+          <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
+          <Route path="/reset-password" element={<ResetPasswordScreen />} />
         </Route>
 
         {/* Protected Routes */}

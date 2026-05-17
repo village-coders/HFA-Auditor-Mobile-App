@@ -185,7 +185,7 @@ export interface SyncState {
 // =============================================================================
 
 export interface SubmitAuditPayload {
-  checklist: Audit['checklist'];
+  checklist?: Audit['checklist'];
   overallRemarks: string;
   finalResult: 'passed' | 'failed' | 'conditional_pass';
 }

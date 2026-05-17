@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import type { Audit, AuditSummary, AuditChecklistItem, SubmitAuditPayload } from '@/types';
+import type { Audit, AuditSummary, SubmitAuditPayload } from '@/types';
 import {
   fetchAudits,
   fetchAuditById,
@@ -13,7 +13,6 @@ import {
   submitAudit,
   fetchAuditSummary,
   fetchAuditorStats,
-  uploadChecklistPhoto,
 } from '@/api/auditApi';
 
 interface AuditState {
@@ -43,12 +42,6 @@ interface AuditActions {
   loadStats: () => Promise<void>;
   startAuditFlow: (auditId: string) => Promise<void>;
   submitAuditFlow: (auditId: string, payload: SubmitAuditPayload) => Promise<void>;
-  updateChecklistItem: (
-    itemId: string,
-    updates: Partial<AuditChecklistItem>
-  ) => void;
-  addPhotoToChecklistItem: (itemId: string, photoUrl: string) => void;
-  uploadPhoto: (auditId: string, itemId: string, file: File) => Promise<string>;
   setCurrentAudit: (audit: Audit | null) => void;
   setError: (error: string | null) => void;
   refreshAudits: () => Promise<void>;
@@ -177,57 +170,6 @@ export const useAuditStore = create<AuditStore>()(
           const message = error instanceof Error ? error.message : 'Failed to submit audit';
           set({ isSubmitting: false, error: message });
         }
-      },
-
-      /**
-       * Update a checklist item in the current audit (local state only)
-       */
-      updateChecklistItem: (itemId: string, updates: Partial<AuditChecklistItem>) => {
-        set((state) => {
-          if (!state.currentAudit) return state;
-
-          const updatedChecklist = state.currentAudit.checklist.map((item) =>
-            item.id === itemId ? { ...item, ...updates } : item
-          );
-
-          return {
-            currentAudit: {
-              ...state.currentAudit,
-              checklist: updatedChecklist,
-            },
-          };
-        });
-      },
-
-      /**
-       * Add a photo URL to a checklist item
-       */
-      addPhotoToChecklistItem: (itemId: string, photoUrl: string) => {
-        set((state) => {
-          if (!state.currentAudit) return state;
-
-          const updatedChecklist = state.currentAudit.checklist.map((item) =>
-            item.id === itemId
-              ? { ...item, photoUrls: [...(item.photoUrls || []), photoUrl] }
-              : item
-          );
-
-          return {
-            currentAudit: {
-              ...state.currentAudit,
-              checklist: updatedChecklist,
-            },
-          };
-        });
-      },
-
-      /**
-       * Upload a photo and add URL to checklist item
-       */
-      uploadPhoto: async (auditId: string, itemId: string, file: File) => {
-        const { url } = await uploadChecklistPhoto(auditId, itemId, file);
-        get().addPhotoToChecklistItem(itemId, url);
-        return url;
       },
 
       /**

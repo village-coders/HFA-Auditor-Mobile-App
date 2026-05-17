@@ -1,23 +1,39 @@
 /**
  * Profile Screen
- * Auditor info, stats, logout
+ * Auditor info, stats, logout, name change, password change settings
  */
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck, ClipboardCheck, TrendingUp,
-  LogOut, ChevronRight, Award, AlertTriangle, ShieldCheck
+  LogOut, ChevronRight, Award, AlertTriangle, ShieldCheck,
+  User, Key, Loader2, CheckCircle2
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useAuditStore } from '@/store/auditStore';
 
 export function ProfileScreen() {
   const navigate = useNavigate();
-  const { auditor, signOut } = useAuthStore();
+  const { auditor, signOut, updateProfileName, changePassword, isLoading } = useAuthStore();
   const { stats, loadStats } = useAuditStore();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Edit Name state
+  const [showChangeNameModal, setShowChangeNameModal] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [nameSuccess, setNameSuccess] = useState('');
+  const [nameError, setNameError] = useState('');
+
+  // Edit Password state
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showPasswords, setShowPasswords] = useState(false);
 
   useEffect(() => {
     loadStats();
@@ -28,6 +44,63 @@ export function ProfileScreen() {
     await signOut();
     setIsLoggingOut(false);
     navigate('/login', { replace: true });
+  };
+
+  const handleChangeName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNameError('');
+    setNameSuccess('');
+
+    if (!newName.trim()) {
+      setNameError('Name cannot be empty.');
+      return;
+    }
+
+    try {
+      await updateProfileName(newName.trim());
+      setNameSuccess('Your name has been updated successfully!');
+      setTimeout(() => {
+        setShowChangeNameModal(false);
+        setNameSuccess('');
+      }, 1500);
+    } catch (err: any) {
+      setNameError(err.message || 'Failed to update name.');
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordError('All fields are required.');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('New passwords do not match.');
+      return;
+    }
+
+    try {
+      await changePassword(currentPassword, newPassword);
+      setPasswordSuccess('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setTimeout(() => {
+        setShowChangePasswordModal(false);
+        setPasswordSuccess('');
+      }, 1500);
+    } catch (err: any) {
+      setPasswordError(err.message || 'Failed to change password. Please verify current password.');
+    }
   };
 
   const menuItems = [
@@ -120,11 +193,55 @@ export function ProfileScreen() {
         </div>
       </div>
 
+      {/* Account Settings */}
+      <div className="px-4 mt-4">
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-1 mb-2">Account Settings</h3>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-50">
+          <button
+            onClick={() => {
+              setNewName(auditor?.name || '');
+              setNameError('');
+              setNameSuccess('');
+              setShowChangeNameModal(true);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-4 text-left active:bg-gray-50 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+              <User className="w-4 h-4 text-[#1A7A4A]" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900">Change Name</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+          </button>
+          
+          <button
+            onClick={() => {
+              setCurrentPassword('');
+              setNewPassword('');
+              setConfirmNewPassword('');
+              setPasswordError('');
+              setPasswordSuccess('');
+              setShowChangePasswordModal(true);
+            }}
+            className="w-full flex items-center gap-3 px-4 py-4 text-left active:bg-gray-50 transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+              <Key className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900">Change Password</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
+          </button>
+        </div>
+      </div>
+
       {/* App Info */}
       <div className="px-4 mt-6 text-center">
         <div className="flex items-center justify-center gap-2 text-gray-400 mb-1">
           <ShieldCheck className="w-4 h-4" />
-          <span className="text-xs font-medium">Halal Auditor</span>
+          <span className="text-xs font-medium">Halal Auditor App</span>
         </div>
         <p className="text-xs text-gray-300">Version 1.0.0</p>
       </div>
@@ -140,6 +257,167 @@ export function ProfileScreen() {
           Log Out
         </button>
       </div>
+
+      {/* Change Name Modal */}
+      {showChangeNameModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowChangeNameModal(false)} />
+          <form onSubmit={handleChangeName} className="relative bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Change Name</h2>
+            
+            {nameError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2 mb-4 animate-in fade-in">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{nameError}</p>
+              </div>
+            )}
+
+            {nameSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-start gap-2 mb-4 animate-in fade-in">
+                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700">{nameSuccess}</p>
+              </div>
+            )}
+
+            <div className="mb-6">
+              <label htmlFor="modalNewName" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Full Name
+              </label>
+              <input
+                id="modalNewName"
+                type="text"
+                value={newName}
+                onChange={(e) => { setNewName(e.target.value); setNameError(''); }}
+                placeholder="Enter your full name"
+                className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-white text-gray-900 text-base
+                  focus:outline-none focus:ring-2 focus:ring-[#1A7A4A] focus:border-transparent
+                  placeholder:text-gray-400 transition-all"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowChangeNameModal(false)}
+                className="flex-1 h-12 bg-gray-100 text-gray-700 font-medium rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading || !newName.trim()}
+                className="flex-1 h-12 bg-[#1A7A4A] text-white font-semibold rounded-xl
+                  disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowChangePasswordModal(false)} />
+          <form onSubmit={handleChangePassword} className="relative bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Change Password</h2>
+            
+            {passwordError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2 mb-4 animate-in fade-in">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{passwordError}</p>
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-start gap-2 mb-4 animate-in fade-in">
+                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-700">{passwordSuccess}</p>
+              </div>
+            )}
+
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Current Password
+                </label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(''); }}
+                  placeholder="Enter current password"
+                  className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-white text-gray-900 text-base
+                    focus:outline-none focus:ring-2 focus:ring-[#1A7A4A] focus:border-transparent
+                    placeholder:text-gray-400 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  New Password
+                </label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordError(''); }}
+                  placeholder="At least 6 characters"
+                  className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-white text-gray-900 text-base
+                    focus:outline-none focus:ring-2 focus:ring-[#1A7A4A] focus:border-transparent
+                    placeholder:text-gray-400 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Confirm New Password
+                </label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={confirmNewPassword}
+                  onChange={(e) => { setConfirmNewPassword(e.target.value); setPasswordError(''); }}
+                  placeholder="Re-enter new password"
+                  className="w-full h-12 px-4 rounded-xl border border-gray-300 bg-white text-gray-900 text-base
+                    focus:outline-none focus:ring-2 focus:ring-[#1A7A4A] focus:border-transparent
+                    placeholder:text-gray-400 transition-all"
+                />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="showPasswordsToggle"
+                  type="checkbox"
+                  checked={showPasswords}
+                  onChange={(e) => setShowPasswords(e.target.checked)}
+                  className="w-4 h-4 text-[#1A7A4A] border-gray-300 rounded focus:ring-[#1A7A4A]"
+                />
+                <label htmlFor="showPasswordsToggle" className="text-xs text-gray-500 font-medium select-none">
+                  Show Passwords
+                </label>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowChangePasswordModal(false)}
+                className="flex-1 h-12 bg-gray-100 text-gray-700 font-medium rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading || !currentPassword || !newPassword || !confirmNewPassword}
+                className="flex-1 h-12 bg-[#1A7A4A] text-white font-semibold rounded-xl
+                  disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Save'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
